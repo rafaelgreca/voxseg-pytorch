@@ -1,15 +1,33 @@
-# Various utility functions for sub-tasks frequently used by the voxseg module
-# Author: Nick Wilkinson 2021
-import pickle
-
-pickle.HIGHEST_PROTOCOL = 4
 import pandas as pd
 import numpy as np
 import os
 import sys
+import librosa
+import warnings
 from scipy.io import wavfile
 from typing import Iterable, TextIO, Tuple
-import warnings
+from glob import glob
+
+
+def create_ava_files(path: str) -> None:
+    wavfiles = glob(os.path.join(os.getcwd(), path, "**/*.wav"), recursive=True)
+
+    with open(os.path.join(path, "wav.scp"), "w") as w, open(
+        os.path.join(path, "segments"), "w"
+    ) as s, open(os.path.join(path, "utt2spk"), "w") as u:
+
+        for i, wavfile in enumerate(sorted(wavfiles)):
+            label = wavfile.split("/")[-2]
+            end = librosa.get_duration(filename=wavfile, sr=16000)
+            start = 0
+
+            w.write(f"rec_{i} {wavfile}\n")
+            s.write(f"rec_{i}_0 rec_{i} {start:1.3f} {end:1.3f}\n")
+
+            if label == "CLEAN_SPEECH":
+                u.write(f"rec_{i}_0 speech\n")
+            else:
+                u.write(f"rec_{i}_0 non_speech\n")
 
 
 def load(path: str) -> pd.DataFrame:

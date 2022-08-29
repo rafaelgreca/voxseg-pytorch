@@ -1,6 +1,3 @@
-# Module for preparing training labels,
-# may also be run directly as a script
-# Author: Nick Wilkinson 2021
 import argparse
 import numpy as np
 import pandas as pd
