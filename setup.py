@@ -3,7 +3,7 @@ from setuptools import find_packages, setup
 with open("README.md") as f:
     readme = f.read()
 
-with open('LICENSE') as f:
+with open("LICENSE") as f:
     license = f.read()
 
 setup(
@@ -17,18 +17,18 @@ setup(
     packages=find_packages(),
     license=license,
     classifiers=[
-        'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
     ],
-    python_requires='>=3.8',
+    python_requires=">=3.8",
     install_requires=[
-        'wheel',
-        'pandas', 
-        'scipy', 
-        'tables',
-        'python_speech_features',
-        'tensorflow',
+        "wheel",
+        "pandas",
+        "scipy",
+        "tables",
+        "python_speech_features",
+        "tensorflow",
     ],
 )
