@@ -1,7 +1,8 @@
-import os
+import pytest
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from tensorflow.keras import utils, models, layers
 
 # All credits to: https://discuss.pytorch.org/t/any-pytorch-function-can-work-as-keras-timedistributed/1346
 class TimeDistributed(nn.Module):
@@ -126,30 +127,33 @@ class Voxseg(nn.Module):
 
         return x
 
+# Original model
+def cnn_bilstm(output_layer_width):
+    model = models.Sequential()
+    model.add(layers.TimeDistributed(layers.Conv2D(64, (5, 5), activation='elu'), input_shape=(None, 32, 32, 1)))
+    model.add(layers.TimeDistributed(layers.MaxPooling2D((2,2))))
+    model.add(layers.TimeDistributed(layers.Conv2D(128, (3, 3), activation='elu')))
+    model.add(layers.TimeDistributed(layers.MaxPooling2D((2,2))))
+    model.add(layers.TimeDistributed(layers.Conv2D(128, (3, 3), activation='elu')))
+    model.add(layers.TimeDistributed(layers.MaxPooling2D((2,2))))
+    model.add(layers.TimeDistributed(layers.Flatten()))
+    model.add(layers.TimeDistributed(layers.Dense(128, activation='elu')))
+    model.add(layers.Dropout(0.5))
+    model.add(layers.Bidirectional(layers.LSTM(128, return_sequences=True)))
+    model.add(layers.Dropout(0.5))
+    model.add(layers.TimeDistributed(layers.Dense(output_layer_width, activation='softmax')))
+    model.compile(optimizer='adam',
+                loss='binary_crossentropy',
+                metrics=['accuracy'])
+    return model
 
-class SaveBestModel:
+# TODO: Compare the training step of both models
+@pytest.mark.parametrize("signal", [
+    (torch.rand(size=(30, 15, 1, 32, 32), dtype=torch.float32)),
+    (torch.rand(size=(90, 15, 1, 32, 32), dtype=torch.float32)),
+    (torch.rand(size=(54, 15, 1, 32, 32), dtype=torch.float32))
+])
+def test1(signal):
+    """_summary_
     """
-    Class to save the best model while training. If the current epoch's
-    validation loss is less than the previous least less, then save the
-    model state.
-    """
-
-    def __init__(self, output_dir: str, model_name: str):
-        self.best_valid_loss = float("inf")
-        self.output_dir = output_dir
-        self.model_name = model_name
-
-    def __call__(self, current_valid_loss, epoch, model, optimizer, criterion):
-        if current_valid_loss < self.best_valid_loss:
-            self.best_valid_loss = current_valid_loss
-            print(f"\nBest validation loss: {self.best_valid_loss}")
-            print(f"Saving best model for epoch: {epoch}\n")
-            torch.save(
-                {
-                    "epoch": epoch,
-                    "model_state_dict": model.state_dict(),
-                    "optimizer_state_dict": optimizer.state_dict(),
-                    "loss": criterion,
-                },
-                os.path.join(self.output_dir, f"{self.model_name}.pth"),
-            )
+    pass
