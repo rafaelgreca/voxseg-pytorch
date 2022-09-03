@@ -1,5 +1,8 @@
 data/
 checkpoints/
+tests/wav.scp
+tests/segments
+tests/utt2spk
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

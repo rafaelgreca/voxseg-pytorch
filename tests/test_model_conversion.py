@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 import numpy as np
+from voxseg.model import TimeDistributed, Voxseg
 from tensorflow.keras import layers
 from typing import Tuple
 
@@ -253,135 +254,6 @@ def _compare_lstm(signal: torch.tensor,
     output_keras = bilstm(signal_numpy)
     
     return output_torch, output_keras
-
-# All credits to: https://discuss.pytorch.org/t/any-pytorch-function-can-work-as-keras-timedistributed/1346
-class TimeDistributed(nn.Module):
-    def __init__(self, module, batch_first, layer_name):
-        super(TimeDistributed, self).__init__()
-        self.module = module
-        self.batch_first = batch_first
-        self.layer_name = layer_name
-
-    def forward(self, x):
-
-        if len(x.size()) <= 2:
-            return self.module(x)
-
-        # Squash samples and timesteps into a single axis
-        x_reshape = x.contiguous().view(
-            -1, x.size(-3), x.size(-2), x.size(-1)
-        )
-
-        y = self.module(x_reshape)
-
-        if self.layer_name == "convolutional" or self.layer_name == "max_pooling":
-
-            # We have to reshape Y
-            if self.batch_first:
-                y = y.contiguous().view(
-                    x.size(0), x.size(1), y.size(-3), y.size(-2), y.size(-1)
-                )
-            else:
-                y = y.view(
-                    -1, x.size(1), y.size(-1)
-                )
-
-        else:
-
-            # We have to reshape Y
-            if self.batch_first:
-                y = y.contiguous().view(
-                    x.size(0), x.size(1), y.size(-1)
-                )
-            else:
-                y = y.view(
-                    -1, x.size(1), y.size(-1)
-                )
-
-        return y
-    
-def voxseg_pytorch(signal: torch.tensor) -> torch.tensor:
-    """
-    Creates the Voxseg model using PyTorch.
-
-    Args:
-        signal (torch.tensor): the audio sample.
-
-    Returns:
-        x (torch.tensor): the model output.
-    """
-    # Defining the layers
-    convolutional1 = TimeDistributed(
-        nn.Conv2d(in_channels=1, out_channels=64, kernel_size=5),
-        batch_first=True,
-        layer_name="convolutional",
-    )
-    convolutional2 = TimeDistributed(
-        nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3),
-        batch_first=True,
-        layer_name="convolutional",
-    )
-    convolutional3 = TimeDistributed(
-        nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3),
-        batch_first=True,
-        layer_name="convolutional",
-    )
-    max_pooling = TimeDistributed(
-        nn.MaxPool2d(kernel_size=2), batch_first=True, layer_name="max_pooling"
-    )
-    dense1 = TimeDistributed(
-        nn.Linear(in_features=512, out_features=128),
-        batch_first=True,
-        layer_name="dense",
-    )
-    dense2 = TimeDistributed(
-        nn.Linear(in_features=256, out_features=2),
-        batch_first=True,
-        layer_name="dense",
-    )
-    dropout = nn.Dropout(p=0.5)
-    bilstm = nn.LSTM(
-        input_size=128,
-        hidden_size=128,
-        num_layers=1,
-        batch_first=True,
-        bidirectional=True,
-    )
-    flatten = TimeDistributed(
-        nn.Flatten(), batch_first=True, layer_name="flatten"
-    )
-
-    ## first convolutional block
-    x = F.relu(convolutional1(signal))
-    x = max_pooling(x)
-
-    ## second convolutional block
-    x = F.relu(convolutional2(x))
-    x = max_pooling(x)
-
-    ## third convolutional block
-    x = F.relu(convolutional3(x))
-    x = max_pooling(x)
-
-    ## flatten
-    x = flatten(x)
-
-    ## first dense layer
-    x = F.relu(dense1(x))
-
-    ## dropout
-    x = dropout(x)
-
-    ## bilstm
-    x, _ = bilstm(x)
-
-    ## dropout
-    x = dropout(x)
-
-    ## final layer
-    x = dense2(x)
-    
-    return x
         
 def voxseg_keras(signal: np.ndarray) -> np.ndarray:
     """
@@ -466,9 +338,10 @@ def test1(signal):
     Args:
         signal (torch.tensor): the audio sample.
     """
+    voxseg = Voxseg(2)
     signal_numpy = signal.permute(0, 1, 3, 4, 2).detach().numpy()
     output_model_keras = voxseg_keras(signal_numpy)
-    output_model_pytorch = voxseg_pytorch(signal)
+    output_model_pytorch = voxseg(signal)
     
     assert output_model_pytorch.shape == output_model_keras.shape
 

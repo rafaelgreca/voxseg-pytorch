@@ -49,83 +49,97 @@ class TimeDistributed(nn.Module):
 
         return y
 
+# All credits to: https://discuss.pytorch.org/t/crossentropyloss-expected-object-of-type-torch-longtensor/28683/6?u=ptrblck
+def weight_init(m):
+    if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+        nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
+        nn.init.zeros_(m.bias)
+    if isinstance(m, nn.LSTM):
+        nn.init.xavier_uniform_(m.weight_ih_l0, gain=nn.init.calculate_gain('relu'))
+        nn.init.orthogonal_(m.weight_hh_l0)
+        nn.init.zeros_(m.bias_ih_l0)
+        nn.init.zeros_(m.bias_hh_l0)
 
+class Extract_LSTM_Output(nn.Module):
+    def forward(self, x):
+        output, _ = x
+        return output
+        
 class Voxseg(nn.Module):
     def __init__(self, num_labels):
         super(Voxseg, self).__init__()
-        self.convolutional1 = TimeDistributed(
-            nn.Conv2d(in_channels=1, out_channels=64, kernel_size=5),
-            batch_first=True,
-            layer_name="convolutional",
-        )
-        self.convolutional2 = TimeDistributed(
-            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3),
-            batch_first=True,
-            layer_name="convolutional",
-        )
-        self.convolutional3 = TimeDistributed(
-            nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3),
-            batch_first=True,
-            layer_name="convolutional",
-        )
-        self.max_pooling = TimeDistributed(
-            nn.MaxPool2d(kernel_size=2), batch_first=True, layer_name="max_pooling"
-        )
-        self.dense1 = TimeDistributed(
-            nn.Linear(in_features=512, out_features=128),
-            batch_first=True,
-            layer_name="dense",
-        )
-        self.dense2 = TimeDistributed(
-            nn.Linear(in_features=256, out_features=num_labels),
-            batch_first=True,
-            layer_name="dense",
-        )
-        self.dropout = nn.Dropout(p=0.5)
-        self.bilstm = nn.LSTM(
-            input_size=128,
-            hidden_size=128,
-            num_layers=1,
-            batch_first=True,
-            bidirectional=True,
-        )
-        self.flatten = TimeDistributed(
-            nn.Flatten(), batch_first=True, layer_name="flatten"
+        self.layers = nn.Sequential(
+            TimeDistributed(
+                nn.Conv2d(in_channels=1,
+                          out_channels=64,
+                          kernel_size=5),
+                batch_first=True,
+                layer_name="convolutional",
+            ),
+            nn.ReLU(),
+            TimeDistributed(
+                nn.MaxPool2d(kernel_size=2),
+                batch_first=True, 
+                layer_name="max_pooling"
+            ),
+            TimeDistributed(
+                nn.Conv2d(in_channels=64,
+                          out_channels=128,
+                          kernel_size=3),
+                batch_first=True,
+                layer_name="convolutional",
+            ),
+            nn.ReLU(),
+            TimeDistributed(
+                nn.MaxPool2d(kernel_size=2),
+                batch_first=True, 
+                layer_name="max_pooling"
+            ),
+            TimeDistributed(
+                nn.Conv2d(in_channels=128,
+                          out_channels=128,
+                          kernel_size=3),
+                batch_first=True,
+                layer_name="convolutional",
+            ),
+            nn.ReLU(),
+            TimeDistributed(
+                nn.MaxPool2d(kernel_size=2),
+                batch_first=True, 
+                layer_name="max_pooling"
+            ),
+            TimeDistributed(
+                nn.Flatten(),
+                batch_first=True,
+                layer_name="flatten"
+            ),
+            TimeDistributed(
+                nn.Linear(in_features=512,
+                          out_features=128),
+                batch_first=True,
+                layer_name="dense",
+            ),
+            nn.Dropout(p=0.5),
+            nn.LSTM(
+                input_size=128,
+                hidden_size=128,
+                num_layers=1,
+                batch_first=True,
+                bidirectional=True,
+            ),
+            Extract_LSTM_Output(),
+            nn.Dropout(p=0.5),
+            TimeDistributed(
+                nn.Linear(in_features=256,
+                          out_features=num_labels),
+                batch_first=True,
+                layer_name="dense",
+            ),
+            nn.Softmax(dim=2)
         )
 
     def forward(self, x):
-        ## first convolutional block
-        x = F.relu(self.convolutional1(x))
-        x = self.max_pooling(x)
-
-        ## second convolutional block
-        x = F.relu(self.convolutional2(x))
-        x = self.max_pooling(x)
-
-        ## third convolutional block
-        x = F.relu(self.convolutional3(x))
-        x = self.max_pooling(x)
-
-        ## flatten
-        x = self.flatten(x)
-
-        ## first dense layer
-        x = F.relu(self.dense1(x))
-
-        ## dropout
-        x = self.dropout(x)
-
-        ## bilstm
-        x, _ = self.bilstm(x)
-
-        ## dropout
-        x = self.dropout(x)
-
-        ## final layer
-        x = self.dense2(x)
-
-        return x
-
+        return self.layers(x)
 
 class SaveBestModel:
     """

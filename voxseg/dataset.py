@@ -7,7 +7,7 @@ class AVA_Dataset(Dataset):
         self.y = y
 
     def __len__(self):
-        return len(self.X)
+        return len(self.y)
 
     def __getitem__(self, index):
         return {"X": self.X[index], "y": self.y[index]}
