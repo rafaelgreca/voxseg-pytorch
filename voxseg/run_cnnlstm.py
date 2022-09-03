@@ -5,25 +5,12 @@ import argparse
 import os
 import numpy as np
 import pandas as pd
-import tensorflow as tf
+import torch
 from typing import Tuple
-from tensorflow.keras import models
 from voxseg import utils
 from scipy.signal import medfilt
 
-gpus = tf.config.experimental.list_physical_devices("GPU")
-if gpus:
-    # Restrict TensorFlow to only use the first GPU, quick enough for decoding
-    try:
-        tf.config.experimental.set_visible_devices(gpus[0], "GPU")
-    except RuntimeError as e:
-        # Visible devices must be set before GPUs have been initialized
-        print(e)
-session_conf = tf.compat.v1.ConfigProto(
-    intra_op_parallelism_threads=10, inter_op_parallelism_threads=10
-)
-sess = tf.compat.v1.Session(config=session_conf)
-
+torch.set_num_threads(1)
 
 def decode(
     targets: pd.DataFrame,
@@ -99,7 +86,7 @@ def decode(
     return targets
 
 
-def predict_targets(model: tf.keras.Model, features: pd.DataFrame) -> pd.DataFrame:
+def predict_targets(model: torch.nn.Module, features: pd.DataFrame) -> pd.DataFrame:
     """Function for applying a pretrained model to predict targets from features.
 
     Args:
@@ -139,7 +126,7 @@ def to_data_dir(endpoints: pd.DataFrame, out_dir: str) -> None:
     ).to_csv(f"{out_dir}/segments", sep=" ", index=False, header=False)
 
 
-def _predict(model: tf.keras.Model, col: pd.Series) -> pd.Series:
+def _predict(model: torch.nn.Module, col: pd.Series) -> pd.Series:
     """Auxiliary function used by predict_targets(). Applies a pretrained model to
     each feature set in the 'normalized-features' or 'features' column of a pd.DataFrame
     containing features and metadata.
@@ -154,9 +141,11 @@ def _predict(model: tf.keras.Model, col: pd.Series) -> pd.Series:
 
     targets = []
     for features in col:
-        # temp = model.predict(utils.time_distribute(features, 15)[:,:,:,:,np.newaxis])
-        temp = model.predict(features[np.newaxis, :, :, :, np.newaxis])
-        targets.append(temp.reshape(-1, temp.shape[-1]))
+        X = features.astype(np.float32)
+        X = torch.from_numpy(X).unsqueeze(1)
+        temp = model(X)
+        temp = temp.squeeze(1).detach().numpy()
+        targets.append(temp)
     return pd.Series(targets)
 
 
