@@ -3,6 +3,7 @@ checkpoints/
 tests/wav.scp
 tests/segments
 tests/utt2spk
+output/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

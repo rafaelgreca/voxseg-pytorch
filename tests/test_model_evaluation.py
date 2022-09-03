@@ -5,8 +5,10 @@ import torch
 from voxseg import evaluate, extract_feats, run_cnnlstm, utils
 from voxseg.model import TimeDistributed, Voxseg
 
-# TODO: Generate model and create a test case
 def test1():
+    """
+    Testing features extraction and normalization step
+    """
     data = extract_feats.prep_data(os.path.join(os.getcwd(), "tests", "files", "data"))
     feats = extract_feats.extract(data)
     feats = extract_feats.normalize(feats)
@@ -17,6 +19,11 @@ def test1():
     assert len(feats["normalized-features"].values.tolist()) > 0
 
 def test2():
+    """
+    Testing model prediction step
+    """
+    
+    ## FIXME
     model = Voxseg(2)
     model.load_state_dict(torch.load(os.path.join(os.getcwd(), "checkpoints", "model.pth"))["model_state_dict"])
     model.eval()
@@ -42,6 +49,9 @@ def test2():
     assert os.path.exists(os.path.join(os.getcwd(), "tests", "files", "output", "segments"))
 
 def test3():
+    """
+    Testing the model evaluation step
+    """
     wav_scp, wav_segs, _ = utils.process_data_dir(os.path.join(os.getcwd(), "tests", "files", "data"))
     _, sys_segs, _ = utils.process_data_dir(os.path.join(os.getcwd(), "tests", "files", "output"))
     _, ref_segs, _ = utils.process_data_dir(os.path.join(os.getcwd(), "tests", "files", "ground_truth"))

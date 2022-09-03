@@ -51,22 +51,33 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    if (
+        os.path.exists(os.path.join(args.data_dir, "wav.scp"))
+        and os.path.exists(os.path.join(args.data_dir, "segments"))
+        and os.path.exists(os.path.join(args.data_dir, "utt2spk"))
+    ) == False:
+        utils.create_ava_files(args.data_dir)
+        
     data = extract_feats.prep_data(args.data_dir)
     feats = extract_feats.extract(data)
     feats = extract_feats.normalize(feats)
+    
+    ## FIXME
     model = model.Voxseg(num_labels=2)
 
     if args.model_path is not None:
-        model.load_state_dict(torch.load(args.model_path))
+        model.load_state_dict(
+            torch.load(args.model_path)["model_state_dict"]
+        )
     else:
         model.load_state_dict(
             torch.load(
                 os.path.join(
-                    os.path.dirname(os.path.realpath(__file__)),
+                    os.getcwd(),
                     "checkpoints",
-                    "best_model.pth",
+                    "model.pth",
                 )
-            )
+            )["model_state_dict"]
         )
     if args.speech_thresh is not None:
         speech_thresh = args.speech_thresh
@@ -86,10 +97,10 @@ if __name__ == "__main__":
     endpoints = run_cnnlstm.decode(targets, speech_thresh, speech_w_music_thresh, filt)
     run_cnnlstm.to_data_dir(endpoints, args.out_dir)
 
-    # if args.eval_dir is not None:
-    #     wav_scp, wav_segs, _ = utils.process_data_dir(args.data_dir)
-    #     _, sys_segs, _ = utils.process_data_dir(args.out_dir)
-    #     _, ref_segs, _ = utils.process_data_dir(args.eval_dir)
-    #     scores = evaluate.score(wav_scp, sys_segs, ref_segs, wav_segs)
-    #     print(scores)
-    #     evaluate.print_confusion_matrix(scores)
+    if args.eval_dir is not None:
+        wav_scp, wav_segs, _ = utils.process_data_dir(args.data_dir)
+        _, sys_segs, _ = utils.process_data_dir(args.out_dir)
+        _, ref_segs, _ = utils.process_data_dir(args.eval_dir)
+        scores = evaluate.score(wav_scp, sys_segs, ref_segs, wav_segs)
+        print(scores)
+        evaluate.print_confusion_matrix(scores)

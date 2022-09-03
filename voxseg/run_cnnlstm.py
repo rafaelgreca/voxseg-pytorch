@@ -74,8 +74,17 @@ def decode(
     else:
         targets["start"] = temp["start"]
         targets["end"] = temp["end"]
+    
     targets = targets.drop(["predicted-targets"], axis=1)
-    targets = targets.apply(pd.Series.explode).reset_index(drop=True)
+    
+    idx_to_keep = list()
+    for i, (start, end) in enumerate(zip(targets["start"],
+                                         targets["end"])):
+        if start.size > 0 and end.size > 0:
+            idx_to_keep.append(i)
+    targets = targets[targets.index.isin(idx_to_keep)].reset_index(drop=True)
+    
+    targets = targets.apply(pd.Series.explode).reset_index(drop=True)    
     targets["utterance-id"] = (
         targets["recording-id"].astype(str)
         + "_"

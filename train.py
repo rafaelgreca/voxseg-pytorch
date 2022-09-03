@@ -3,6 +3,7 @@ import numpy as np
 import argparse
 import os
 import pandas as pd
+import random
 import torch
 import torch.nn.functional as F
 from sklearn.model_selection import train_test_split
@@ -11,6 +12,23 @@ from voxseg.dataset import AVA_Dataset
 from voxseg import utils, extract_feats, prep_labels
 from torch.utils.data import DataLoader
 
+# Making sure the experiments are reproducible
+seed = 2109
+random.seed(seed)
+np.random.seed(seed)
+torch.cuda.manual_seed(seed)
+os.environ['PYTHONHASHSEED'] = str(seed)
+torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.deterministic = True
+torch.use_deterministic_algorithms(True)
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+g = torch.Generator()
+g.manual_seed(0)
 
 def train(device, train_loader, optimizer, epoch, model):
     model.train()
@@ -118,13 +136,20 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if (
-        os.path.exists(os.path.join(os.getcwd(), "wav.scp"))
-        and os.path.exists(os.path.join(os.getcwd(), "segments"))
-        and os.path.exists(os.path.join(os.getcwd(), "utt2spk"))
+        os.path.exists(os.path.join(args.train_dir, "wav.scp"))
+        and os.path.exists(os.path.join(args.train_dir, "segments"))
+        and os.path.exists(os.path.join(args.train_dir, "utt2spk"))
     ) == False:
-
         utils.create_ava_files(args.train_dir)
 
+    if args.validation_dir:
+        if (
+            os.path.exists(os.path.join(args.validation_dir, "wav.scp"))
+            and os.path.exists(os.path.join(args.validation_dir, "segments"))
+            and os.path.exists(os.path.join(args.validation_dir, "utt2spk"))
+        ) == False:
+            utils.create_ava_files(args.validation_dir)
+        
     # Fetch data
     data_train = prep_labels.prep_data(args.train_dir)
 
@@ -165,22 +190,35 @@ if __name__ == "__main__":
 
     if not args.validation_dir:
         X_train, X_validation, y_train, y_validation = train_test_split(
-            X, y, test_size=args.validation_split, random_state=0
+            X, y, test_size=args.validation_split, random_state=seed
         )
 
     training_dataset = AVA_Dataset(X=X_train, y=y_train)
     validation_dataset = AVA_Dataset(X=X_validation, y=y_validation)
 
     training_dataloader = DataLoader(
-        training_dataset, batch_size=64, num_workers=0, shuffle=True
+        training_dataset,
+        batch_size=64,
+        num_workers=1,
+        shuffle=True,
+        worker_init_fn=seed_worker,
+        generator=g
     )
     validation_dataloader = DataLoader(
-        validation_dataset, batch_size=64, num_workers=0, shuffle=True
+        validation_dataset,
+        batch_size=64,
+        num_workers=1,
+        shuffle=True,
+        worker_init_fn=seed_worker,
+        generator=g
     )
 
+    assert y.shape[-1] == 2 or y.shape[-1] == 4, \
+           f"ERROR: Number of classes {y.shape[-1]} is not equal to 2 or 4, see README for more info on using this training script."
+    
     epochs = 25
     device = torch.device("cpu" if torch.cuda.is_available() else "cpu")
-    model = Voxseg(num_labels=2).to(device)
+    model = Voxseg(num_labels=y.shape[-1]).to(device)
     optimizer = torch.optim.Adam(params=model.parameters(),
                                  lr=1e-03,
                                  eps=1e-07)
