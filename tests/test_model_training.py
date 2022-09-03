@@ -58,6 +58,9 @@ def cnn_bilstm(output_layer_width):
     return model
 
 def test1():
+    """
+    Test if the output shape of both models (Original in Keras and PyTorch) are the same
+    """
     # Creating the models
     voxseg_pytorch = Voxseg(2)
     voxseg_pytorch.apply(weight_init)
@@ -95,7 +98,8 @@ def test1():
     assert loss_keras.shape == loss_pytorch.shape
 
 def test2():
-    """_summary_
+    """
+    Check the total number of parameters for both models (Original in Keras and PyTorch)
     """
     # Creating the models
     voxseg_pytorch = Voxseg(2)
@@ -117,9 +121,9 @@ def test2():
     assert (total_params_keras * 0.95) <= total_params_torch <= (total_params_keras * 1.05)
     assert (trainable_params_keras * 0.95) <= trainable_params_torch <= ((trainable_params_keras * 1.05))
     
-# TODO: Compare the training step of both models  
 def test3():
-    """_summary_
+    """
+    Test if both models (Original in Keras and PyTorch) are training
     """
     # Creating the models
     voxseg_pytorch = Voxseg(2)
