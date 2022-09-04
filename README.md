@@ -15,6 +15,64 @@ Use of this VAD may be cited as follows:
 }
 ```
 
+## Repository structure
+
+.
+├── checkpoints
+│   ├── best_model.pth
+│   ├── model.pth
+│   └── training_log.csv
+├── data
+│   ├── test
+│   │   ├── CLEAN_SPEECH
+│   │   ├── NO_SPEECH
+│   │   ├── segments
+│   │   ├── utt2spk
+│   │   └── wav.scp
+│   └── train
+│       ├── CLEAN_SPEECH
+│       ├── NO_SPEECH
+│       ├── segments
+│       ├── utt2spk
+│       └── wav.scp
+├── __init__.py
+├── LICENSE
+├── main.py
+├── output
+│   ├── segments
+│   └── wav.scp
+├── README.md
+├── requirements.txt
+├── setup.py
+├── tests
+│   ├── files
+│   │   ├── data
+│   │   ├── features
+│   │   ├── ground_truth
+│   │   ├── output
+│   │   └── wavs
+│   ├── __init__.py
+│   ├── segments
+│   ├── test_model_conversion.py
+│   ├── test_model_evaluation.py
+│   ├── test_model_training.py
+│   ├── utt2spk
+│   └── wav.scp
+├── train.py
+└── voxseg
+    ├── dataset.py
+    ├── evaluate.py
+    ├── extract_feats.py
+    ├── __init__.py
+    ├── model.py
+    ├── prep_labels.py
+    ├── run_cnnlstm.py
+    └── utils.py
+
+## AVA Speech Dataset
+
+The code was built using the AVA Speech dataset downloaded from [this](github.com/rafaelgreca/ava-speech-downloader) repository. If you haven't yet downloaded the dataset, it's recommended to do so using the same way as we did. This way the code can run smoothly and without problems.
+
 ## Installation
 
 To install this package, clone the repository from GitHub to a directory of your choice and install using pip:
