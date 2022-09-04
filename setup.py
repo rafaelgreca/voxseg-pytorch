@@ -8,7 +8,7 @@ with open("LICENSE") as f:
 
 setup(
     name="voxseg-pytorch",
-    version="0.1.0",
+    version="1.0.0",
     author="Rafael Greca",
     author_email="rafaelgreca97@hotmail.com",
     description="Voxseg VAD implemented in PyTorch",
@@ -29,6 +29,6 @@ setup(
         "scipy",
         "tables",
         "python_speech_features",
-        "tensorflow",
+        "torch",
     ],
 )

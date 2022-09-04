@@ -5,6 +5,10 @@ import torch.nn.functional as F
 
 # All credits to: https://discuss.pytorch.org/t/any-pytorch-function-can-work-as-keras-timedistributed/1346
 class TimeDistributed(nn.Module):
+    """
+    Mimics the Keras TimeDistributed layer.
+    """
+
     def __init__(self, module, batch_first, layer_name):
         super(TimeDistributed, self).__init__()
         self.module = module
@@ -17,9 +21,7 @@ class TimeDistributed(nn.Module):
             return self.module(x)
 
         # Squash samples and timesteps into a single axis
-        x_reshape = x.contiguous().view(
-            -1, x.size(-3), x.size(-2), x.size(-1)
-        )
+        x_reshape = x.contiguous().view(-1, x.size(-3), x.size(-2), x.size(-1))
 
         y = self.module(x_reshape)
 
@@ -31,91 +33,82 @@ class TimeDistributed(nn.Module):
                     x.size(0), x.size(1), y.size(-3), y.size(-2), y.size(-1)
                 )
             else:
-                y = y.view(
-                    -1, x.size(1), y.size(-1)
-                )
+                y = y.view(-1, x.size(1), y.size(-1))
 
         else:
 
             # We have to reshape Y
             if self.batch_first:
-                y = y.contiguous().view(
-                    x.size(0), x.size(1), y.size(-1)
-                )
+                y = y.contiguous().view(x.size(0), x.size(1), y.size(-1))
             else:
-                y = y.view(
-                    -1, x.size(1), y.size(-1)
-                )
+                y = y.view(-1, x.size(1), y.size(-1))
 
         return y
 
+
 # All credits to: https://discuss.pytorch.org/t/crossentropyloss-expected-object-of-type-torch-longtensor/28683/6?u=ptrblck
 def weight_init(m):
+    """
+    Initalize all the weights in the PyTorch model to be the same as Keras.
+    """
     if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
-        nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
+        nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain("relu"))
         nn.init.zeros_(m.bias)
     if isinstance(m, nn.LSTM):
-        nn.init.xavier_uniform_(m.weight_ih_l0, gain=nn.init.calculate_gain('relu'))
+        nn.init.xavier_uniform_(m.weight_ih_l0, gain=nn.init.calculate_gain("relu"))
         nn.init.orthogonal_(m.weight_hh_l0)
         nn.init.zeros_(m.bias_ih_l0)
         nn.init.zeros_(m.bias_hh_l0)
 
+
 class Extract_LSTM_Output(nn.Module):
+    """
+    Extracts only the output from the BiLSTM layer.
+    """
+
     def forward(self, x):
         output, _ = x
         return output
-        
+
+
 class Voxseg(nn.Module):
+    """
+    Creates the Voxseg model in PyTorch.
+    """
+
     def __init__(self, num_labels):
         super(Voxseg, self).__init__()
         self.layers = nn.Sequential(
             TimeDistributed(
-                nn.Conv2d(in_channels=1,
-                          out_channels=64,
-                          kernel_size=5),
+                nn.Conv2d(in_channels=1, out_channels=64, kernel_size=5),
                 batch_first=True,
                 layer_name="convolutional",
             ),
             nn.ReLU(),
             TimeDistributed(
-                nn.MaxPool2d(kernel_size=2),
-                batch_first=True, 
-                layer_name="max_pooling"
+                nn.MaxPool2d(kernel_size=2), batch_first=True, layer_name="max_pooling"
             ),
             TimeDistributed(
-                nn.Conv2d(in_channels=64,
-                          out_channels=128,
-                          kernel_size=3),
+                nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3),
                 batch_first=True,
                 layer_name="convolutional",
             ),
             nn.ReLU(),
             TimeDistributed(
-                nn.MaxPool2d(kernel_size=2),
-                batch_first=True, 
-                layer_name="max_pooling"
+                nn.MaxPool2d(kernel_size=2), batch_first=True, layer_name="max_pooling"
             ),
             TimeDistributed(
-                nn.Conv2d(in_channels=128,
-                          out_channels=128,
-                          kernel_size=3),
+                nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3),
                 batch_first=True,
                 layer_name="convolutional",
             ),
             nn.ReLU(),
             TimeDistributed(
-                nn.MaxPool2d(kernel_size=2),
-                batch_first=True, 
-                layer_name="max_pooling"
+                nn.MaxPool2d(kernel_size=2), batch_first=True, layer_name="max_pooling"
             ),
+            TimeDistributed(nn.Flatten(), batch_first=True, layer_name="flatten"),
             TimeDistributed(
-                nn.Flatten(),
-                batch_first=True,
-                layer_name="flatten"
-            ),
-            TimeDistributed(
-                nn.Linear(in_features=512,
-                          out_features=128),
+                nn.Linear(in_features=512, out_features=128),
                 batch_first=True,
                 layer_name="dense",
             ),
@@ -130,16 +123,16 @@ class Voxseg(nn.Module):
             Extract_LSTM_Output(),
             nn.Dropout(p=0.5),
             TimeDistributed(
-                nn.Linear(in_features=256,
-                          out_features=num_labels),
+                nn.Linear(in_features=256, out_features=num_labels),
                 batch_first=True,
                 layer_name="dense",
             ),
-            nn.Softmax(dim=2)
+            nn.Softmax(dim=2),
         )
 
     def forward(self, x):
         return self.layers(x)
+
 
 class SaveBestModel:
     """
@@ -148,9 +141,7 @@ class SaveBestModel:
     model state.
     """
 
-    def __init__(self,
-                 output_dir: str,
-                 model_name: str):
+    def __init__(self, output_dir: str, model_name: str):
         self.best_valid_loss = float("inf")
         self.best_valid_acc = 0.0
         self.output_dir = output_dir
@@ -168,7 +159,7 @@ class SaveBestModel:
                 {
                     "epoch": epoch,
                     "model_state_dict": model.state_dict(),
-                    "optimizer_state_dict": optimizer.state_dict()
+                    "optimizer_state_dict": optimizer.state_dict(),
                 },
                 os.path.join(self.output_dir, f"{self.model_name}.pth"),
             )

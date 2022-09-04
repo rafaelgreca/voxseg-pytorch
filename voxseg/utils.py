@@ -10,6 +10,13 @@ from glob import glob
 
 
 def create_ava_files(path: str) -> None:
+    """
+    Creats the wav.scp, segments and utt2spk files using the AVA Speech
+    dataset (downloaded with https://github.com/rafaelgreca/ava-speech-downloader).
+
+    Args:
+        path (str): the path where the files are located.
+    """
     wavfiles = glob(os.path.join(os.getcwd(), path, "**/*.wav"), recursive=True)
 
     with open(os.path.join(path, "wav.scp"), "w") as w, open(
@@ -31,7 +38,8 @@ def create_ava_files(path: str) -> None:
 
 
 def load(path: str) -> pd.DataFrame:
-    """Reads a pd.DataFrame from a .h5 file.
+    """
+    Reads a pd.DataFrame from a .h5 file.
 
     Args:
         path: The filepath of the .h5 file to be read.
@@ -44,7 +52,8 @@ def load(path: str) -> pd.DataFrame:
 
 
 def process_data_dir(path: str) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Function for processing Kaldi-style data directory containing wav.scp,
+    """
+    Function for processing Kaldi-style data directory containing wav.scp,
     segments (optional), and utt2spk (optional).
 
     Args:
@@ -85,7 +94,8 @@ def process_data_dir(path: str) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFram
 def progressbar(
     it: Iterable, prefix: str = "", size: int = 45, file: TextIO = sys.stdout
 ) -> None:
-    """Provides a progress bar for an iterated process.
+    """
+    Provides a progress bar for an iterated process.
 
     Args:
         it: An Iterable type for which to provide a progess bar.
@@ -113,7 +123,8 @@ def progressbar(
 
 
 def read_data_file(path: str) -> pd.DataFrame:
-    """Function for reading standard Kaldi-style text data files (eg. wav.scp, utt2spk etc.)
+    """
+    Function for reading standard Kaldi-style text data files (eg. wav.scp, utt2spk etc.)
 
     Args:
         path: The path to the data file.
@@ -141,7 +152,8 @@ def read_data_file(path: str) -> pd.DataFrame:
 
 
 def read_sigs(data: pd.DataFrame) -> pd.DataFrame:
-    """Reads audio signals from a pd.DataFrame containing the directories of
+    """
+    Reads audio signals from a pd.DataFrame containing the directories of
     .wav files, and optionally start and end points within the .wav files.
 
     Args:
@@ -178,7 +190,8 @@ def read_sigs(data: pd.DataFrame) -> pd.DataFrame:
 
 
 def save(data: pd.DataFrame, path: str) -> None:
-    """Saves a pd.DataFrame to a .h5 file.
+    """
+    Saves a pd.DataFrame to a .h5 file.
 
     Args:
         data: A pd.DataFrame for saving.
@@ -192,7 +205,8 @@ def save(data: pd.DataFrame, path: str) -> None:
 def time_distribute(
     data: np.ndarray, sequence_length: int, stride: int = None, z_pad: bool = True
 ) -> np.ndarray:
-    """Takes a sequence of features or labels and creates an np.ndarray of time
+    """
+    Takes a sequence of features or labels and creates an np.ndarray of time
     distributed sequences for input to a Keras TimeDistributed() layer.
 
     Args:

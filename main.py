@@ -57,18 +57,16 @@ if __name__ == "__main__":
         and os.path.exists(os.path.join(args.data_dir, "utt2spk"))
     ) == False:
         utils.create_ava_files(args.data_dir)
-        
+
     data = extract_feats.prep_data(args.data_dir)
     feats = extract_feats.extract(data)
     feats = extract_feats.normalize(feats)
-    
+
     ## FIXME
     model = model.Voxseg(num_labels=2)
 
     if args.model_path is not None:
-        model.load_state_dict(
-            torch.load(args.model_path)["model_state_dict"]
-        )
+        model.load_state_dict(torch.load(args.model_path)["model_state_dict"])
     else:
         model.load_state_dict(
             torch.load(

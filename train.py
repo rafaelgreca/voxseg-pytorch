@@ -1,4 +1,3 @@
-# Script for training custom VAD model for the voxseg toolkit
 import numpy as np
 import argparse
 import os
@@ -11,31 +10,48 @@ from voxseg.model import Voxseg, SaveBestModel
 from voxseg.dataset import AVA_Dataset
 from voxseg import utils, extract_feats, prep_labels
 from torch.utils.data import DataLoader
+from typing import Tuple
 
 # Making sure the experiments are reproducible
 seed = 2109
 random.seed(seed)
 np.random.seed(seed)
 torch.cuda.manual_seed(seed)
-os.environ['PYTHONHASHSEED'] = str(seed)
+os.environ["PYTHONHASHSEED"] = str(seed)
 torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
 torch.use_deterministic_algorithms(True)
+
 
 def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
     random.seed(worker_seed)
 
-g = torch.Generator()
-g.manual_seed(0)
 
-def train(device, train_loader, optimizer, epoch, model):
+g = torch.Generator()
+g.manual_seed(seed)
+
+
+def train(device, train_loader, optimizer, epoch, model) -> Tuple[float, float]:
+    """
+    Function responsible for the training step.
+
+    Args:
+        device (torch.device): the device (cpu or cuda).
+        train_loader (torch.utils.data.DataLoader): the training dataloader.
+        optimizer (torch.nn.optim): the optimizer that will be used.
+        epoch (int): the current epoch.
+        model (torch.nn.Module): the Voxseg module.
+
+    Returns:
+        Tuple[float, float]: current epoch training loss and accuracy.
+    """
     model.train()
     training_loss = 0
     training_acc = 0
     pctg_to_print = list(range(0, 101, 25))
-    
+
     for batch_idx, batch in enumerate(train_loader):
         data = batch["X"]
         data = data.unsqueeze(2)
@@ -50,12 +66,12 @@ def train(device, train_loader, optimizer, epoch, model):
         optimizer.step()
 
         training_loss += l.item()
-        
+
         pred = output.argmax(dim=2)
         training_acc += pred.eq(target.argmax(dim=2)).sum().item()
-        
+
         pctg_batch = 100.0 * batch_idx / len(train_loader)
-        
+
         if round(pctg_batch, 0) in pctg_to_print:
             print(
                 "Train Epoch: {} [{}/{} ({:.0f}%)]".format(
@@ -67,16 +83,27 @@ def train(device, train_loader, optimizer, epoch, model):
             )
             pctg_to_print.remove(pctg_batch)
 
-    training_loss /= (len(train_loader.dataset) / 64)
-    training_acc /= (len(train_loader.dataset) * 15)
+    training_loss /= len(train_loader.dataset) / 64
+    training_acc /= len(train_loader.dataset) * 15
     return training_loss, training_acc
 
 
-def validation(device, validation_loader, model):
+def validation(device, validation_loader, model) -> Tuple[float, float]:
+    """
+    Function responsible for the training step.
+
+    Args:
+        device (torch.device): the device (cpu or cuda).
+        validation_loader (torch.utils.data.DataLoader): the validation dataloader.
+        model (torch.nn.Module): the Voxseg module.
+
+    Returns:
+        Tuple[float, float]: current epoch validation loss and accuracy.
+    """
     model.eval()
     validation_loss = 0
     validation_acc = 0
-    
+
     with torch.no_grad():
         for batch in validation_loader:
             data = batch["X"]
@@ -88,12 +115,12 @@ def validation(device, validation_loader, model):
 
             l = F.binary_cross_entropy(output, target)
             validation_loss += l.item()
-            
+
             pred = output.argmax(dim=2)
             validation_acc += pred.eq(target.argmax(dim=2)).sum().item()
 
-    validation_loss /= (len(validation_loader.dataset) / 64)
-    validation_acc /= (len(validation_loader.dataset) * 15)
+    validation_loss /= len(validation_loader.dataset) / 64
+    validation_acc /= len(validation_loader.dataset) * 15
     return validation_loss, validation_acc
 
 
@@ -149,7 +176,7 @@ if __name__ == "__main__":
             and os.path.exists(os.path.join(args.validation_dir, "utt2spk"))
         ) == False:
             utils.create_ava_files(args.validation_dir)
-        
+
     # Fetch data
     data_train = prep_labels.prep_data(args.train_dir)
 
@@ -193,6 +220,7 @@ if __name__ == "__main__":
             X, y, test_size=args.validation_split, random_state=seed
         )
 
+    # Create the datasets and dataloaders
     training_dataset = AVA_Dataset(X=X_train, y=y_train)
     validation_dataset = AVA_Dataset(X=X_validation, y=y_validation)
 
@@ -202,7 +230,7 @@ if __name__ == "__main__":
         num_workers=1,
         shuffle=True,
         worker_init_fn=seed_worker,
-        generator=g
+        generator=g,
     )
     validation_dataloader = DataLoader(
         validation_dataset,
@@ -210,35 +238,34 @@ if __name__ == "__main__":
         num_workers=1,
         shuffle=True,
         worker_init_fn=seed_worker,
-        generator=g
+        generator=g,
     )
 
-    assert y.shape[-1] == 2 or y.shape[-1] == 4, \
-           f"ERROR: Number of classes {y.shape[-1]} is not equal to 2 or 4, see README for more info on using this training script."
-    
+    assert (
+        y.shape[-1] == 2 or y.shape[-1] == 4
+    ), f"ERROR: Number of classes {y.shape[-1]} is not equal to 2 or 4, see README for more info on using this training script."
+
+    # Create the model
     epochs = 25
     device = torch.device("cpu" if torch.cuda.is_available() else "cpu")
     model = Voxseg(num_labels=y.shape[-1]).to(device)
-    optimizer = torch.optim.Adam(params=model.parameters(),
-                                 lr=1e-03,
-                                 eps=1e-07)
+    optimizer = torch.optim.Adam(params=model.parameters(), lr=1e-03, eps=1e-07)
     save_best_model = SaveBestModel(output_dir=args.out_dir, model_name=args.model_name)
     os.makedirs(args.out_dir, exist_ok=True)
     training_log = pd.DataFrame()
 
-    for epoch in range(1, epochs+1):
+    # Training loop
+    for epoch in range(1, epochs + 1):
         train_loss, train_acc = train(
             device=device,
             train_loader=training_dataloader,
             optimizer=optimizer,
             epoch=epoch,
-            model=model
+            model=model,
         )
 
         validation_loss, validation_acc = validation(
-            device=device,
-            validation_loader=validation_dataloader,
-            model=model
+            device=device, validation_loader=validation_dataloader, model=model
         )
 
         save_best_model(
@@ -246,18 +273,25 @@ if __name__ == "__main__":
             current_valid_acc=validation_acc,
             epoch=epoch,
             model=model,
-            optimizer=optimizer
+            optimizer=optimizer,
         )
 
-        training_log = pd.concat([
-            training_log,
-            pd.DataFrame({
-                "epoch": [epoch],
-                "train_loss": [train_loss],
-                "train_accuracy": [train_acc],
-                "validation_loss": [validation_loss],
-                "validation_accuracy": [validation_acc]
-            })
-        ], axis=0)
-    
-    training_log.to_csv(os.path.join(args.out_dir, "training_log.csv"), index=False, sep=";")
+        training_log = pd.concat(
+            [
+                training_log,
+                pd.DataFrame(
+                    {
+                        "epoch": [epoch],
+                        "train_loss": [train_loss],
+                        "train_accuracy": [train_acc],
+                        "validation_loss": [validation_loss],
+                        "validation_accuracy": [validation_acc],
+                    }
+                ),
+            ],
+            axis=0,
+        )
+
+    training_log.to_csv(
+        os.path.join(args.out_dir, "training_log.csv"), index=False, sep=";"
+    )

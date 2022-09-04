@@ -8,7 +8,8 @@ from voxseg import utils
 def get_labels(
     data: pd.DataFrame, frame_length: float = 0.32, rate: int = 16000
 ) -> pd.DataFrame:
-    """Function for preparing training labels.
+    """
+    Function for preparing training labels.
 
     Args:
         data: A pd.DataFrame containing datatset information and signals -- see docs for prep_data().
@@ -30,7 +31,8 @@ def get_labels(
 
 
 def one_hot(col: pd.Series) -> pd.Series:
-    """Function for converting string labels to one-hot encoded labels. One-hot mapping is done
+    """
+    Function for converting string labels to one-hot encoded labels. One-hot mapping is done
     in alphabetical order of sting labels eg. {a: [1, 0, 0], b = [0, 1, 0], c = [0, 0, 1]}.
 
     Args:
@@ -50,7 +52,8 @@ def one_hot(col: pd.Series) -> pd.Series:
 
 
 def prep_data(path: str) -> pd.DataFrame:
-    """Function for creating pd.DataFrame containing dataset information specified by Kaldi-style
+    """
+    Function for creating pd.DataFrame containing dataset information specified by Kaldi-style
     data directory containing 'wav.spc', 'segments' and 'utt2spk'.
 
     Args:
@@ -79,7 +82,8 @@ def prep_data(path: str) -> pd.DataFrame:
 def _generate_label_sequence(
     row: pd.DataFrame, frame_length: float, rate: int
 ) -> np.ndarray:
-    """Auxiliary function used by get_labels(). Generated label arrays from a row of a pd.DataFrame
+    """
+    Auxiliary function used by get_labels(). Generated label arrays from a row of a pd.DataFrame
     containing dataset information created by prep_data().
 
     Args:

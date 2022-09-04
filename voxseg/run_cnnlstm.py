@@ -12,13 +12,15 @@ from scipy.signal import medfilt
 
 torch.set_num_threads(1)
 
+
 def decode(
     targets: pd.DataFrame,
     speech_thresh: float = 0.5,
     speech_w_music_thresh: float = 0.5,
     filt: int = 1,
 ) -> pd.DataFrame:
-    """Function for converting target sequences within a pd.DataFrame to endpoints.
+    """
+    Function for converting target sequences within a pd.DataFrame to endpoints.
 
     Args:
         targets: A pd.DataFrame containing predicted targets (in array form) and metadata.
@@ -74,17 +76,16 @@ def decode(
     else:
         targets["start"] = temp["start"]
         targets["end"] = temp["end"]
-    
+
     targets = targets.drop(["predicted-targets"], axis=1)
-    
+
     idx_to_keep = list()
-    for i, (start, end) in enumerate(zip(targets["start"],
-                                         targets["end"])):
+    for i, (start, end) in enumerate(zip(targets["start"], targets["end"])):
         if start.size > 0 and end.size > 0:
             idx_to_keep.append(i)
     targets = targets[targets.index.isin(idx_to_keep)].reset_index(drop=True)
-    
-    targets = targets.apply(pd.Series.explode).reset_index(drop=True)    
+
+    targets = targets.apply(pd.Series.explode).reset_index(drop=True)
     targets["utterance-id"] = (
         targets["recording-id"].astype(str)
         + "_"
@@ -96,7 +97,8 @@ def decode(
 
 
 def predict_targets(model: torch.nn.Module, features: pd.DataFrame) -> pd.DataFrame:
-    """Function for applying a pretrained model to predict targets from features.
+    """
+    Function for applying a pretrained model to predict targets from features.
 
     Args:
         model: A pretrained tf.keras model.
@@ -113,7 +115,8 @@ def predict_targets(model: torch.nn.Module, features: pd.DataFrame) -> pd.DataFr
 
 
 def to_data_dir(endpoints: pd.DataFrame, out_dir: str) -> None:
-    """A function for generating a Kaldi-style data directory output of the dicovered speech segments.
+    """
+    A function for generating a Kaldi-style data directory output of the dicovered speech segments.
 
     Args:
         endpoints: A pd.DataFrame containing speech segment endpoints and metadata.
@@ -136,7 +139,8 @@ def to_data_dir(endpoints: pd.DataFrame, out_dir: str) -> None:
 
 
 def _predict(model: torch.nn.Module, col: pd.Series) -> pd.Series:
-    """Auxiliary function used by predict_targets(). Applies a pretrained model to
+    """
+    Auxiliary function used by predict_targets(). Applies a pretrained model to
     each feature set in the 'normalized-features' or 'features' column of a pd.DataFrame
     containing features and metadata.
 
@@ -159,7 +163,8 @@ def _predict(model: torch.nn.Module, col: pd.Series) -> pd.Series:
 
 
 def _targets_to_endpoints(targets: np.ndarray, frame_length: float) -> pd.DataFrame:
-    """Auxilory function used by decode() for converting a target sequence to endpoints.
+    """
+    Auxiliary function used by decode() for converting a target sequence to endpoints.
 
     Args:
         targets: A binary np.ndarray of speech/nonspeech targets where 1 indicates the presence of speech.
@@ -189,7 +194,8 @@ def _targets_to_endpoints(targets: np.ndarray, frame_length: float) -> pd.DataFr
 
 
 def _update_fst(state: int, transition: int) -> Tuple[int, str]:
-    """Auxiliary function used by _targets_to_endpoints() for updating finite state
+    """
+    Auxiliary function used by _targets_to_endpoints() for updating finite state
     transducer.
 
     Args:
