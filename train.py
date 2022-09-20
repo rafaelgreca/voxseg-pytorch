@@ -20,7 +20,6 @@ torch.cuda.manual_seed(seed)
 os.environ["PYTHONHASHSEED"] = str(seed)
 torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
-torch.use_deterministic_algorithms(True)
 
 
 def seed_worker(worker_id):
@@ -61,30 +60,37 @@ def train(device, train_loader, optimizer, epoch, model) -> Tuple[float, float]:
         optimizer.zero_grad()
         output = model(data)
 
-        l = F.binary_cross_entropy(output, target)
+        l = F.binary_cross_entropy(torch.sigmoid(output), target)
         l.backward()
         optimizer.step()
 
         training_loss += l.item()
 
-        pred = output.argmax(dim=2)
-        training_acc += pred.eq(target.argmax(dim=2)).sum().item()
+        pred = output.argmax(dim=2).view(-1, 1)
+        target_class = target.argmax(dim=2).view(-1, 1)
+        training_acc += (pred.eq(target_class).sum().item() / len(target_class))
 
-        pctg_batch = 100.0 * batch_idx / len(train_loader)
+        pctg_batch = 100.0 * (batch_idx + 1) / len(train_loader)
 
         if round(pctg_batch, 0) in pctg_to_print:
-            print(
-                "Train Epoch: {} [{}/{} ({:.0f}%)]".format(
-                    epoch,
-                    batch_idx * len(data),
-                    len(train_loader.dataset),
-                    100.0 * batch_idx / len(train_loader),
+            if round(pctg_batch, 0) == 25:
+                print(
+                    "\nTrain Epoch: {} ({:.0f}%)".format(
+                        epoch,
+                        100.0 * (batch_idx + 1) / len(train_loader),
+                    )
                 )
-            )
+            else:
+                print(
+                    "Train Epoch: {} ({:.0f}%)".format(
+                        epoch,
+                        100.0 * (batch_idx + 1) / len(train_loader),
+                    )
+                )
             pctg_to_print.remove(pctg_batch)
 
-    training_loss /= len(train_loader.dataset) / 64
-    training_acc /= len(train_loader.dataset) * 15
+    training_loss /= len(train_loader)
+    training_acc /= len(train_loader)
     return training_loss, training_acc
 
 
@@ -113,14 +119,15 @@ def validation(device, validation_loader, model) -> Tuple[float, float]:
             data, target = data.to(device), target.to(device)
             output = model(data)
 
-            l = F.binary_cross_entropy(output, target)
+            l = F.binary_cross_entropy(torch.sigmoid(output), target)
             validation_loss += l.item()
 
-            pred = output.argmax(dim=2)
-            validation_acc += pred.eq(target.argmax(dim=2)).sum().item()
+            pred = output.argmax(dim=2).view(-1, 1)
+            target_class = target.argmax(dim=2).view(-1, 1)
+            validation_acc += (pred.eq(target_class).sum().item() / len(target_class))
 
-    validation_loss /= len(validation_loader.dataset) / 64
-    validation_acc /= len(validation_loader.dataset) * 15
+    validation_loss /= len(validation_loader)
+    validation_acc /= len(validation_loader)
     return validation_loss, validation_acc
 
 
@@ -128,14 +135,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "-v",
         "--validation_dir",
         type=str,
         help="a path to a Kaldi-style data directory containting 'wav.scp', 'utt2spk' and 'segments'",
     )
 
     parser.add_argument(
-        "-validation_split",
         "--validation_split",
         type=float,
         help="a percetage of the training data to be used as a validation set, if an explicit validation \
@@ -247,7 +252,7 @@ if __name__ == "__main__":
 
     # Create the model
     epochs = 25
-    device = torch.device("cpu" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = Voxseg(num_labels=y.shape[-1]).to(device)
     optimizer = torch.optim.Adam(params=model.parameters(), lr=1e-03, eps=1e-07)
     save_best_model = SaveBestModel(output_dir=args.out_dir, model_name=args.model_name)

@@ -127,7 +127,7 @@ class Voxseg(nn.Module):
                 batch_first=True,
                 layer_name="dense",
             ),
-            nn.Softmax(dim=2),
+            nn.Softmax(dim=2)
         )
 
     def forward(self, x):
@@ -148,7 +148,7 @@ class SaveBestModel:
         self.model_name = model_name
 
     def __call__(self, current_valid_loss, current_valid_acc, epoch, model, optimizer):
-        if current_valid_loss < self.best_valid_loss:
+        if current_valid_acc > self.best_valid_acc:
             self.best_valid_loss = current_valid_loss
             self.best_valid_acc = current_valid_acc
             print("\nSaving best model...")
