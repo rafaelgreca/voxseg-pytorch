@@ -76,8 +76,9 @@ The package may be used in a number of ways:
 ### Full VAD pipeline
 This package may be used through a basic command-line interface. To run the full VAD pipeline with default settings, navigate to the voxseg-pytorch directory and call:
 ```bash
-# data_directory is Kaldi-style data directory and output_directory is destination for segments file 
-python3 main.py data_directory output_directory
+# data_directory is Kaldi-style data directory and output_directory is destination for segments file
+# if you trained the model using binary classification, you have to use as well in the inference step.
+python3 main.py data_directory output_directory --binary_classification
 ```
 
 To explore the available flags for changing settings navigate to the voxseg directory and call:
@@ -163,18 +164,24 @@ To use this script the following files are required in a Kaldi style data direct
 
 If you haven't created the files above, the code will automatically create for you.
 
-Note, that the model may be trained with 2 classes `('speech', 'non_speech')` (the default model used by the toolkit) as shown in the above example, or with the 4 classes from AVA-Speech dataset `('clean_speech', 'no_speech', 'speech_with_music', 'speech_with_noise')`.
+Note, that the model may be trained with 2 classes `('speech', 'non_speech')` as shown in the above example, or with the 4 classes from AVA-Speech dataset `('clean_speech', 'no_speech', 'speech_with_music', 'speech_with_noise')` (the default model used by the toolkit).
 
 To use the training script with a specific validation set run:
 ```bash
-# use -v to specify a Kaldi style data directory to be used as validation set
-python3 train.py -v val_dir train_dir model_name out_dir
+# use --validation_dir to specify a Kaldi style data directory to be used as validation set
+python3 train.py --validation_dir val_dir train_dir model_name out_dir
 ```
 
 To use the training script with a percetage of the training data as a validation set run:
 ```bash
-# use -s to specify a percetage of the training data to be used as a validation set
+# use --validation_split to specify a percetage of the training data to be used as a validation set
 python3 train.py --validation_split 0.1 train_dir model_name out_dir
+```
+
+To use the training script with a binary classification:
+```bash
+# use --binary_classification to use only two classes ('speech' and 'non_speech')
+python3 train.py --validation_dir val_dir train_dir model_name out_dir --binary_classification
 ```
 
 The training script may also be used without any flags, however this is not recommended, as it makes it difficult to tell whether the model is starting to overfit. When a validation set is provided the model with the best validation accuracy is saved. When no validation set is provided the model is saved after the final training epoch.

@@ -9,7 +9,7 @@ from typing import Iterable, TextIO, Tuple
 from glob import glob
 
 
-def create_ava_files(path: str) -> None:
+def create_ava_files(path: str, binary_classification: bool) -> None:
     """
     Creats the wav.scp, segments and utt2spk files using the AVA Speech
     dataset (downloaded with https://github.com/rafaelgreca/ava-speech-downloader).
@@ -31,10 +31,13 @@ def create_ava_files(path: str) -> None:
             w.write(f"rec_{i} {wavfile}\n")
             s.write(f"rec_{i}_0 rec_{i} {start:1.3f} {end:1.3f}\n")
 
-            if label == "CLEAN_SPEECH":
-                u.write(f"rec_{i}_0 speech\n")
+            if binary_classification:
+                if label == "NO_SPEECH":
+                    u.write(f"rec_{i}_0 non_speech\n")
+                else:
+                    u.write(f"rec_{i}_0 speech\n")
             else:
-                u.write(f"rec_{i}_0 non_speech\n")
+                u.write(f"rec_{i}_0 {label}\n")
 
 
 def load(path: str) -> pd.DataFrame:

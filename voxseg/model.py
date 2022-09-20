@@ -127,7 +127,7 @@ class Voxseg(nn.Module):
                 batch_first=True,
                 layer_name="dense",
             ),
-            nn.Softmax(dim=2)
+            nn.Softmax(dim=2),
         )
 
     def forward(self, x):

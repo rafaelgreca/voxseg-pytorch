@@ -68,7 +68,7 @@ def train(device, train_loader, optimizer, epoch, model) -> Tuple[float, float]:
 
         pred = output.argmax(dim=2).view(-1, 1)
         target_class = target.argmax(dim=2).view(-1, 1)
-        training_acc += (pred.eq(target_class).sum().item() / len(target_class))
+        training_acc += pred.eq(target_class).sum().item() / len(target_class)
 
         pctg_batch = 100.0 * (batch_idx + 1) / len(train_loader)
 
@@ -87,7 +87,7 @@ def train(device, train_loader, optimizer, epoch, model) -> Tuple[float, float]:
                         100.0 * (batch_idx + 1) / len(train_loader),
                     )
                 )
-            pctg_to_print.remove(pctg_batch)
+            pctg_to_print.remove(round(pctg_batch, 0))
 
     training_loss /= len(train_loader)
     training_acc /= len(train_loader)
@@ -124,7 +124,7 @@ def validation(device, validation_loader, model) -> Tuple[float, float]:
 
             pred = output.argmax(dim=2).view(-1, 1)
             target_class = target.argmax(dim=2).view(-1, 1)
-            validation_acc += (pred.eq(target_class).sum().item() / len(target_class))
+            validation_acc += pred.eq(target_class).sum().item() / len(target_class)
 
     validation_loss /= len(validation_loader)
     validation_acc /= len(validation_loader)
@@ -162,7 +162,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "out_dir",
         type=str,
-        help="a path to an output directory where the model will be saved as <model_name>.h5",
+        help="a path to an output directory where the model will be saved as <model_name>.pth",
+    )
+
+    parser.add_argument(
+        "--binary_classification",
+        action="store_true",
+        help="use binary_classification (classes: speech and non-speech)",
     )
 
     args = parser.parse_args()
@@ -172,7 +178,9 @@ if __name__ == "__main__":
         and os.path.exists(os.path.join(args.train_dir, "segments"))
         and os.path.exists(os.path.join(args.train_dir, "utt2spk"))
     ) == False:
-        utils.create_ava_files(args.train_dir)
+        utils.create_ava_files(
+            path=args.train_dir, binary_classification=args.binary_classification
+        )
 
     if args.validation_dir:
         if (
@@ -180,7 +188,10 @@ if __name__ == "__main__":
             and os.path.exists(os.path.join(args.validation_dir, "segments"))
             and os.path.exists(os.path.join(args.validation_dir, "utt2spk"))
         ) == False:
-            utils.create_ava_files(args.validation_dir)
+            utils.create_ava_files(
+                path=args.validation_dir,
+                binary_classification=args.binary_classification,
+            )
 
     # Fetch data
     data_train = prep_labels.prep_data(args.train_dir)
@@ -204,7 +215,7 @@ if __name__ == "__main__":
         labels_dev = prep_labels.get_labels(data_dev)
         labels_dev["labels"] = prep_labels.one_hot(labels_dev["labels"])
 
-    # Train model
+    # Time distributing the data
     X = utils.time_distribute(np.vstack(feats_train["normalized-features"]), 15)
     y = utils.time_distribute(np.vstack(labels_train["labels"]), 15)
 

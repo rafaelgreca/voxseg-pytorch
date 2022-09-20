@@ -49,6 +49,11 @@ if __name__ == "__main__":
         type=str,
         help="a path to an output directory where the output segments will be saved",
     )
+    parser.add_argument(
+        "--binary_classification",
+        action="store_true",
+        help="use binary_classification (classes: speech and non-speech)",
+    )
     args = parser.parse_args()
 
     if (
@@ -62,8 +67,10 @@ if __name__ == "__main__":
     feats = extract_feats.extract(data)
     feats = extract_feats.normalize(feats)
 
-    ## FIXME
-    model = model.Voxseg(num_labels=2)
+    if args.binary_classification:
+        model = model.Voxseg(num_labels=2)
+    else:
+        model = model.Voxseg(num_labels=4)
 
     if args.model_path is not None:
         model.load_state_dict(torch.load(args.model_path)["model_state_dict"])
