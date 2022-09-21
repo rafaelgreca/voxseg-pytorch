@@ -4,9 +4,10 @@ import os
 import pandas as pd
 import random
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from sklearn.model_selection import train_test_split
-from voxseg.model import Voxseg, SaveBestModel
+from voxseg.model import Voxseg, SaveBestModel, weight_init
 from voxseg.dataset import AVA_Dataset
 from voxseg import utils, extract_feats, prep_labels
 from torch.utils.data import DataLoader
@@ -32,7 +33,14 @@ g = torch.Generator()
 g.manual_seed(seed)
 
 
-def train(device, train_loader, optimizer, epoch, model) -> Tuple[float, float]:
+def train(
+    device: torch.device,
+    train_loader: DataLoader,
+    optimizer: torch.optim,
+    epoch: int,
+    model: torch.nn.Module,
+    loss: torch.nn.BCEWithLogitsLoss,
+) -> Tuple[float, float]:
     """
     Function responsible for the training step.
 
@@ -60,15 +68,15 @@ def train(device, train_loader, optimizer, epoch, model) -> Tuple[float, float]:
         optimizer.zero_grad()
         output = model(data)
 
-        l = F.binary_cross_entropy(torch.sigmoid(output), target)
+        l = loss(output, target)
         l.backward()
         optimizer.step()
 
-        training_loss += l.item()
+        training_loss += l.detach().item()
 
         pred = output.argmax(dim=2).view(-1, 1)
         target_class = target.argmax(dim=2).view(-1, 1)
-        training_acc += pred.eq(target_class).sum().item() / len(target_class)
+        training_acc += pred.eq(target_class).detach().sum().item() / len(target_class)
 
         pctg_batch = 100.0 * (batch_idx + 1) / len(train_loader)
 
@@ -94,7 +102,9 @@ def train(device, train_loader, optimizer, epoch, model) -> Tuple[float, float]:
     return training_loss, training_acc
 
 
-def validation(device, validation_loader, model) -> Tuple[float, float]:
+def validation(
+    device: torch.device, validation_loader: DataLoader, model: torch.nn.Module
+) -> Tuple[float, float]:
     """
     Function responsible for the training step.
 
@@ -119,12 +129,14 @@ def validation(device, validation_loader, model) -> Tuple[float, float]:
             data, target = data.to(device), target.to(device)
             output = model(data)
 
-            l = F.binary_cross_entropy(torch.sigmoid(output), target)
-            validation_loss += l.item()
+            l = loss(output, target)
+            validation_loss += l.detach().item()
 
             pred = output.argmax(dim=2).view(-1, 1)
             target_class = target.argmax(dim=2).view(-1, 1)
-            validation_acc += pred.eq(target_class).sum().item() / len(target_class)
+            validation_acc += pred.eq(target_class).detach().sum().item() / len(
+                target_class
+            )
 
     validation_loss /= len(validation_loader)
     validation_acc /= len(validation_loader)
@@ -243,16 +255,16 @@ if __name__ == "__main__":
     training_dataloader = DataLoader(
         training_dataset,
         batch_size=64,
-        num_workers=1,
-        shuffle=True,
+        num_workers=0,
+        shuffle=False,
         worker_init_fn=seed_worker,
         generator=g,
     )
     validation_dataloader = DataLoader(
         validation_dataset,
         batch_size=64,
-        num_workers=1,
-        shuffle=True,
+        num_workers=0,
+        shuffle=False,
         worker_init_fn=seed_worker,
         generator=g,
     )
@@ -265,7 +277,9 @@ if __name__ == "__main__":
     epochs = 25
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = Voxseg(num_labels=y.shape[-1]).to(device)
+    model.apply(weight_init)
     optimizer = torch.optim.Adam(params=model.parameters(), lr=1e-03, eps=1e-07)
+    loss = nn.BCEWithLogitsLoss()
     save_best_model = SaveBestModel(output_dir=args.out_dir, model_name=args.model_name)
     os.makedirs(args.out_dir, exist_ok=True)
     training_log = pd.DataFrame()
@@ -278,6 +292,7 @@ if __name__ == "__main__":
             optimizer=optimizer,
             epoch=epoch,
             model=model,
+            loss=loss,
         )
 
         validation_loss, validation_acc = validation(

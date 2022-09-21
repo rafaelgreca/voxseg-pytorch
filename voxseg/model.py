@@ -84,7 +84,7 @@ class Voxseg(nn.Module):
                 batch_first=True,
                 layer_name="convolutional",
             ),
-            nn.ReLU(),
+            nn.ELU(),
             TimeDistributed(
                 nn.MaxPool2d(kernel_size=2), batch_first=True, layer_name="max_pooling"
             ),
@@ -93,7 +93,7 @@ class Voxseg(nn.Module):
                 batch_first=True,
                 layer_name="convolutional",
             ),
-            nn.ReLU(),
+            nn.ELU(),
             TimeDistributed(
                 nn.MaxPool2d(kernel_size=2), batch_first=True, layer_name="max_pooling"
             ),
@@ -102,7 +102,7 @@ class Voxseg(nn.Module):
                 batch_first=True,
                 layer_name="convolutional",
             ),
-            nn.ReLU(),
+            nn.ELU(),
             TimeDistributed(
                 nn.MaxPool2d(kernel_size=2), batch_first=True, layer_name="max_pooling"
             ),
@@ -127,7 +127,6 @@ class Voxseg(nn.Module):
                 batch_first=True,
                 layer_name="dense",
             ),
-            nn.Softmax(dim=2),
         )
 
     def forward(self, x):
