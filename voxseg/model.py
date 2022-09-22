@@ -46,16 +46,16 @@ class TimeDistributed(nn.Module):
         return y
 
 
-# All credits to: https://discuss.pytorch.org/t/crossentropyloss-expected-object-of-type-torch-longtensor/28683/6?u=ptrblck
+# All credits to: https://discuss.pytorch.org/t/same-implementation-different-results-between-keras-and-pytorch-lstm/39146
 def weight_init(m):
     """
     Initalize all the weights in the PyTorch model to be the same as Keras.
     """
     if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
-        nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain("relu"))
+        nn.init.xavier_uniform_(m.weight)
         nn.init.zeros_(m.bias)
     if isinstance(m, nn.LSTM):
-        nn.init.xavier_uniform_(m.weight_ih_l0, gain=nn.init.calculate_gain("relu"))
+        nn.init.xavier_uniform_(m.weight_ih_l0)
         nn.init.orthogonal_(m.weight_hh_l0)
         nn.init.zeros_(m.bias_ih_l0)
         nn.init.zeros_(m.bias_hh_l0)
@@ -150,7 +150,7 @@ class SaveBestModel:
         if current_valid_acc > self.best_valid_acc:
             self.best_valid_loss = current_valid_loss
             self.best_valid_acc = current_valid_acc
-            print("\nSaving best model...")
+            print("\nSaving model...")
             print(f"Epoch: {epoch}")
             print(f"Validation accuracy: {self.best_valid_acc:1.6f}")
             print(f"Validation loss: {self.best_valid_loss:1.6f}\n")
