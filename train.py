@@ -39,7 +39,7 @@ def train(
     optimizer: torch.optim,
     epoch: int,
     model: torch.nn.Module,
-    loss: torch.nn.BCEWithLogitsLoss,
+    loss: torch.nn.CrossEntropyLoss,
 ) -> Tuple[float, float]:
     """
     Function responsible for the training step.
@@ -68,15 +68,18 @@ def train(
         optimizer.zero_grad()
         output = model(data)
 
+        output = output.view(output.size(0) * output.size(1), output.size(2))
+        target = target.view(target.size(0) * target.size(1), target.size(2))
+        
         l = loss(output, target)
         l.backward()
         optimizer.step()
 
-        training_loss += l.detach().item()
-
-        pred = output.argmax(dim=2).view(-1, 1)
-        target_class = target.argmax(dim=2).view(-1, 1)
-        training_acc += pred.eq(target_class).detach().sum().item() / len(target_class)
+        training_loss += l.item()
+                
+        pred = output.argmax(dim=1).view(-1, 1)
+        target_class = target.argmax(dim=1).view(-1, 1)
+        training_acc += pred.eq(target_class).sum().item() / len(target_class)
 
         pctg_batch = 100.0 * (batch_idx + 1) / len(train_loader)
 
@@ -128,13 +131,17 @@ def validation(
 
             data, target = data.to(device), target.to(device)
             output = model(data)
+            
+            output = output.view(output.size(0) * output.size(1), output.size(2))
+            target = target.view(target.size(0) * target.size(1), target.size(2))
+        
 
             l = loss(output, target)
-            validation_loss += l.detach().item()
+            validation_loss += l.item()
 
-            pred = output.argmax(dim=2).view(-1, 1)
-            target_class = target.argmax(dim=2).view(-1, 1)
-            validation_acc += pred.eq(target_class).detach().sum().item() / len(
+            pred = output.argmax(dim=1).view(-1, 1)
+            target_class = target.argmax(dim=1).view(-1, 1)
+            validation_acc += pred.eq(target_class).sum().item() / len(
                 target_class
             )
 
@@ -279,7 +286,7 @@ if __name__ == "__main__":
     model = Voxseg(num_labels=y.shape[-1]).to(device)
     model.apply(weight_init)
     optimizer = torch.optim.Adam(params=model.parameters(), lr=1e-03, eps=1e-07)
-    loss = nn.BCEWithLogitsLoss()
+    loss = nn.CrossEntropyLoss()
     save_best_model = SaveBestModel(output_dir=args.out_dir, model_name=args.model_name)
     os.makedirs(args.out_dir, exist_ok=True)
     training_log = pd.DataFrame()
