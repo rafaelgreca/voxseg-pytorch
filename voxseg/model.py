@@ -9,7 +9,7 @@ class TimeDistributed(nn.Module):
     Mimics the Keras TimeDistributed layer.
     """
 
-    def __init__(self, module, batch_first, layer_name):
+    def __init__(self, module: torch.nn.Module, batch_first: bool, layer_name: str):
         super(TimeDistributed, self).__init__()
         self.module = module
         self.batch_first = batch_first
@@ -47,7 +47,7 @@ class TimeDistributed(nn.Module):
 
 
 # All credits to: https://discuss.pytorch.org/t/same-implementation-different-results-between-keras-and-pytorch-lstm/39146
-def weight_init(m):
+def weight_init(m: torch.nn.Module):
     """
     Initalize all the weights in the PyTorch model to be the same as Keras.
     """
@@ -76,7 +76,7 @@ class Voxseg(nn.Module):
     Creates the Voxseg model in PyTorch.
     """
 
-    def __init__(self, num_labels):
+    def __init__(self, num_labels: int):
         super(Voxseg, self).__init__()
         self.layers = nn.Sequential(
             TimeDistributed(
@@ -146,7 +146,14 @@ class SaveBestModel:
         self.output_dir = output_dir
         self.model_name = model_name
 
-    def __call__(self, current_valid_loss, current_valid_acc, epoch, model, optimizer):
+    def __call__(
+        self,
+        current_valid_loss: float,
+        current_valid_acc: float,
+        epoch: int,
+        model: torch.nn.Module,
+        optimizer: torch.optim,
+    ):
         if current_valid_acc > self.best_valid_acc:
             self.best_valid_loss = current_valid_loss
             self.best_valid_acc = current_valid_acc

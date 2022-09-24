@@ -23,7 +23,7 @@ torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
 
 
-def seed_worker(worker_id):
+def seed_worker(worker_id: int):
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
     random.seed(worker_seed)
@@ -70,13 +70,13 @@ def train(
 
         output = output.view(output.size(0) * output.size(1), output.size(2))
         target = target.view(target.size(0) * target.size(1), target.size(2))
-        
+
         l = loss(output, target)
         l.backward()
         optimizer.step()
 
         training_loss += l.item()
-                
+
         pred = output.argmax(dim=1).view(-1, 1)
         target_class = target.argmax(dim=1).view(-1, 1)
         training_acc += pred.eq(target_class).sum().item() / len(target_class)
@@ -131,60 +131,61 @@ def validation(
 
             data, target = data.to(device), target.to(device)
             output = model(data)
-            
+
             output = output.view(output.size(0) * output.size(1), output.size(2))
             target = target.view(target.size(0) * target.size(1), target.size(2))
-        
 
             l = loss(output, target)
             validation_loss += l.item()
 
             pred = output.argmax(dim=1).view(-1, 1)
             target_class = target.argmax(dim=1).view(-1, 1)
-            validation_acc += pred.eq(target_class).sum().item() / len(
-                target_class
-            )
+            validation_acc += pred.eq(target_class).sum().item() / len(target_class)
 
     validation_loss /= len(validation_loader)
     validation_acc /= len(validation_loader)
     return validation_loss, validation_acc
 
+
 # Function responsible to preprocess the train and validation data
-def preprocessing_pipeline(df: pd.DataFrame):
+def preprocessing_pipeline(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
     feats, labels = pd.DataFrame(), pd.DataFrame()
-    
+
     preprocess_data = Preprocessing_Dataset(df=df)
-    
-    dataloader_prep_data = DataLoader(preprocess_data,
-                                      batch_size=64,
-                                      num_workers=0,
-                                      shuffle=False,
-                                      collate_fn=custom_collate)
+
+    dataloader_prep_data = DataLoader(
+        preprocess_data,
+        batch_size=64,
+        num_workers=0,
+        shuffle=False,
+        collate_fn=custom_collate,
+    )
 
     for batch in dataloader_prep_data:
         temp_df = pd.DataFrame(batch)
-        
+
         # Reading the signals
         temp_df = temp_df.merge(utils.read_sigs(temp_df))
         temp_df = temp_df.drop(columns=["extended filename"])
         temp_df = optimize(temp_df)
-        
+
         # Extract features
         temp_feats_train = extract_feats.extract(temp_df)
         temp_feats_train = extract_feats.normalize(temp_feats_train)
-        
+
         # Extract labels
         temp_labels_train = prep_labels.get_labels(temp_df)
-        
+
         feats = pd.concat([feats, temp_feats_train], axis=0).reset_index(drop=True)
         labels = pd.concat([labels, temp_labels_train], axis=0).reset_index(drop=True)
 
     labels["labels"] = prep_labels.one_hot(labels["labels"])
     return feats, labels
-    
+
+
 # Optimizing the dataframe usage memory
 # Credits to: https://medium.com/bigdatarepublic/advanced-pandas-optimize-speed-and-memory-a654b53be6c2
-def optimize(df: pd.DataFrame):    
+def optimize(df: pd.DataFrame) -> pd.DataFrame:
     def optimize_floats(df: pd.DataFrame) -> pd.DataFrame:
         floats = df.select_dtypes(include=["float64"]).columns.tolist()
         df[floats] = df[floats].apply(pd.to_numeric, downcast="float")
@@ -200,6 +201,7 @@ def optimize(df: pd.DataFrame):
         return df
 
     return optimize_floats(optimize_ints(optimize_objects(df)))
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -262,22 +264,22 @@ if __name__ == "__main__":
                 path=args.validation_dir,
                 binary_classification=args.binary_classification,
             )
-    
+
     # Preprocessing the train data
     feats_train, labels_train = pd.DataFrame(), pd.DataFrame()
-        
+
     # Fetch the data
     data_train = prep_labels.prep_data(args.train_dir)
-    
+
     feats_train, labels_train = preprocessing_pipeline(df=data_train)
-    
+
     # Time distributing the data
     X = utils.time_distribute(np.vstack(feats_train["normalized-features"]), 15)
     y = utils.time_distribute(np.vstack(labels_train["labels"]), 15)
 
     X = X.astype(np.float32)
     y = y.astype(np.float32)
-    
+
     if not args.validation_dir:
         X_train, X_validation, y_train, y_validation = train_test_split(
             X, y, test_size=args.validation_split, random_state=seed
@@ -285,10 +287,10 @@ if __name__ == "__main__":
     else:
         # Preprocessing the validation data
         feats_validation, labels_validation = pd.DataFrame(), pd.DataFrame()
-        
+
         # Fetch the data
         data_validation = prep_labels.prep_data(args.validation_dir)
-        
+
         feats_validation, labels_validation = preprocessing_pipeline(df=data_validation)
 
         X_validation = utils.time_distribute(
