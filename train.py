@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from sklearn.model_selection import train_test_split
 from voxseg.model import Voxseg, SaveBestModel, weight_init
-from voxseg.dataset import AVA_Dataset
+from voxseg.dataset import AVA_Dataset, Preprocessing_Dataset, custom_collate
 from voxseg import utils, extract_feats, prep_labels
 from torch.utils.data import DataLoader
 from typing import Tuple
@@ -149,6 +149,57 @@ def validation(
     validation_acc /= len(validation_loader)
     return validation_loss, validation_acc
 
+# Function responsible to preprocess the train and validation data
+def preprocessing_pipeline(df: pd.DataFrame):
+    feats, labels = pd.DataFrame(), pd.DataFrame()
+    
+    preprocess_data = Preprocessing_Dataset(df=df)
+    
+    dataloader_prep_data = DataLoader(preprocess_data,
+                                      batch_size=64,
+                                      num_workers=0,
+                                      shuffle=False,
+                                      collate_fn=custom_collate)
+
+    for batch in dataloader_prep_data:
+        temp_df = pd.DataFrame(batch)
+        
+        # Reading the signals
+        temp_df = temp_df.merge(utils.read_sigs(temp_df))
+        temp_df = temp_df.drop(columns=["extended filename"])
+        temp_df = optimize(temp_df)
+        
+        # Extract features
+        temp_feats_train = extract_feats.extract(temp_df)
+        temp_feats_train = extract_feats.normalize(temp_feats_train)
+        
+        # Extract labels
+        temp_labels_train = prep_labels.get_labels(temp_df)
+        
+        feats = pd.concat([feats, temp_feats_train], axis=0).reset_index(drop=True)
+        labels = pd.concat([labels, temp_labels_train], axis=0).reset_index(drop=True)
+
+    labels["labels"] = prep_labels.one_hot(labels["labels"])
+    return feats, labels
+    
+# Optimizing the dataframe usage memory
+# Credits to: https://medium.com/bigdatarepublic/advanced-pandas-optimize-speed-and-memory-a654b53be6c2
+def optimize(df: pd.DataFrame):    
+    def optimize_floats(df: pd.DataFrame) -> pd.DataFrame:
+        floats = df.select_dtypes(include=["float64"]).columns.tolist()
+        df[floats] = df[floats].apply(pd.to_numeric, downcast="float")
+        return df
+
+    def optimize_ints(df: pd.DataFrame) -> pd.DataFrame:
+        ints = df.select_dtypes(include=["int64"]).columns.tolist()
+        df[ints] = df[ints].apply(pd.to_numeric, downcast="integer")
+        return df
+
+    def optimize_objects(df: pd.DataFrame) -> pd.DataFrame:
+        df["label"] = df["label"].astype("category")
+        return df
+
+    return optimize_floats(optimize_ints(optimize_objects(df)))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -211,49 +262,42 @@ if __name__ == "__main__":
                 path=args.validation_dir,
                 binary_classification=args.binary_classification,
             )
-
-    # Fetch data
+    
+    # Preprocessing the train data
+    feats_train, labels_train = pd.DataFrame(), pd.DataFrame()
+        
+    # Fetch the data
     data_train = prep_labels.prep_data(args.train_dir)
-
-    if args.validation_dir:
-        data_dev = prep_labels.prep_data(args.validation_dir)
-
-    # Extract features
-    feats_train = extract_feats.extract(data_train)
-    feats_train = extract_feats.normalize(feats_train)
-
-    if args.validation_dir:
-        feats_dev = extract_feats.extract(data_dev)
-        feats_dev = extract_feats.normalize(feats_dev)
-
-    # Extract labels
-    labels_train = prep_labels.get_labels(data_train)
-    labels_train["labels"] = prep_labels.one_hot(labels_train["labels"])
-
-    if args.validation_dir:
-        labels_dev = prep_labels.get_labels(data_dev)
-        labels_dev["labels"] = prep_labels.one_hot(labels_dev["labels"])
-
+    
+    feats_train, labels_train = preprocessing_pipeline(df=data_train)
+    
     # Time distributing the data
     X = utils.time_distribute(np.vstack(feats_train["normalized-features"]), 15)
     y = utils.time_distribute(np.vstack(labels_train["labels"]), 15)
 
     X = X.astype(np.float32)
     y = y.astype(np.float32)
-
-    if args.validation_dir:
-        X_validation = utils.time_distribute(
-            np.vstack(feats_dev["normalized-features"]), 15
-        )
-        y_validation = utils.time_distribute(np.vstack(labels_dev["labels"]), 15)
-
-        X_validation = X_validation.astype(np.float32)
-        y_validation = y_validation.astype(np.float32)
-
+    
     if not args.validation_dir:
         X_train, X_validation, y_train, y_validation = train_test_split(
             X, y, test_size=args.validation_split, random_state=seed
         )
+    else:
+        # Preprocessing the validation data
+        feats_validation, labels_validation = pd.DataFrame(), pd.DataFrame()
+        
+        # Fetch the data
+        data_validation = prep_labels.prep_data(args.validation_dir)
+        
+        feats_validation, labels_validation = preprocessing_pipeline(df=data_validation)
+
+        X_validation = utils.time_distribute(
+            np.vstack(feats_validation["normalized-features"]), 15
+        )
+        y_validation = utils.time_distribute(np.vstack(labels_validation["labels"]), 15)
+
+        X_validation = X_validation.astype(np.float32)
+        y_validation = y_validation.astype(np.float32)
 
     # Create the datasets and dataloaders
     training_dataset = AVA_Dataset(X=X_train, y=y_train)

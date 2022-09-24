@@ -75,7 +75,7 @@ def prep_data(path: str) -> pd.DataFrame:
             containing label information."
     data = wav_scp.merge(segments).merge(utt2spk)
     data = data.rename(columns={"speaker-id": "label"})
-    data = data.merge(utils.read_sigs(data))
+    # data = data.merge(utils.read_sigs(data))
     return data
 
 
