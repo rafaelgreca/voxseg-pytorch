@@ -57,9 +57,8 @@ def train(
     model.train()
     training_loss = 0
     training_acc = 0
-    pctg_to_print = list(range(0, 101, 25))
 
-    for batch_idx, batch in enumerate(train_loader):
+    for _, batch in enumerate(train_loader):
         data = batch["X"]
         data = data.unsqueeze(2)
         target = batch["y"]
@@ -80,25 +79,6 @@ def train(
         pred = output.argmax(dim=1).view(-1, 1)
         target_class = target.argmax(dim=1).view(-1, 1)
         training_acc += pred.eq(target_class).sum().item() / len(target_class)
-
-        pctg_batch = 100.0 * (batch_idx + 1) / len(train_loader)
-
-        if round(pctg_batch, 0) in pctg_to_print:
-            if round(pctg_batch, 0) == 25:
-                print(
-                    "\nTrain Epoch: {} ({:.0f}%)".format(
-                        epoch,
-                        100.0 * (batch_idx + 1) / len(train_loader),
-                    )
-                )
-            else:
-                print(
-                    "Train Epoch: {} ({:.0f}%)".format(
-                        epoch,
-                        100.0 * (batch_idx + 1) / len(train_loader),
-                    )
-                )
-            pctg_to_print.remove(round(pctg_batch, 0))
 
     training_loss /= len(train_loader)
     training_acc /= len(train_loader)
@@ -336,6 +316,8 @@ if __name__ == "__main__":
     save_best_model = SaveBestModel(output_dir=args.out_dir, model_name=args.model_name)
     os.makedirs(args.out_dir, exist_ok=True)
     training_log = pd.DataFrame()
+    
+    print("\nTraining the model...\n")
 
     # Training loop
     for epoch in range(1, epochs + 1):
@@ -352,6 +334,8 @@ if __name__ == "__main__":
             device=device, validation_loader=validation_dataloader, model=model
         )
 
+        print(f"Train Epoch: {epoch}/{epochs}")
+        
         save_best_model(
             current_valid_loss=validation_loss,
             current_valid_acc=validation_acc,
