@@ -67,8 +67,8 @@ def train(
         optimizer.zero_grad()
         output = model(data)
 
-        output = output.view(output.size(0) * output.size(1), output.size(2))
-        target = target.view(target.size(0) * target.size(1), target.size(2))
+        output = output.permute(0, 2, 1)
+        target = target.permute(0, 2, 1)
 
         l = loss(output, target)
         l.backward()
@@ -112,8 +112,8 @@ def validation(
             data, target = data.to(device), target.to(device)
             output = model(data)
 
-            output = output.view(output.size(0) * output.size(1), output.size(2))
-            target = target.view(target.size(0) * target.size(1), target.size(2))
+            output = output.permute(0, 2, 1)
+            target = target.permute(0, 2, 1)
 
             l = loss(output, target)
             validation_loss += l.item()
