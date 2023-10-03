@@ -20,7 +20,7 @@ h5py==3.7.0
 idna==3.3
 importlib-metadata==4.12.0
 iniconfig==1.1.1
-joblib==1.1.0
+joblib==1.2.0
 keras==2.9.0
 Keras-Preprocessing==1.1.2
 libclang==14.0.6
