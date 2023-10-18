@@ -69,7 +69,7 @@ threadpoolctl==3.1.0
 tomli==2.0.1
 torch==1.13.1
 typing_extensions==4.3.0
-urllib3==1.26.12
+urllib3==1.26.18
 Werkzeug==2.2.3
 wrapt==1.14.1
 zipp==3.8.1
